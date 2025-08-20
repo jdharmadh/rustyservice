@@ -34,10 +34,11 @@
             margin-bottom: 10px;
             border: 1px solid rgb(100, 114, 113);
             border-radius: 4px;
-            &:focus {
-            border-color: rgb(0, 128, 70);
+        }
+        input[type="text"]:focus {
             outline: none;
-            }
+            border-color: rgb(0, 128, 53);
+            background-color: rgb(73, 146, 95);
         }
         button {
             font-family: monospace;
@@ -57,8 +58,18 @@
             font-size: 14px;
             color: #0a8956;
         }
-        #urlInput::placeholder {
+        #urlInput::placeholder, #preferenceInput::placeholder {
             color: rgb(188, 188, 188);
+        }
+        .preference-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        .preference-container span {
+            color: white;
+            margin-right: 5px;
         }
     </style>
 </head>
@@ -66,6 +77,11 @@
     <div class="container">
         <h2>tiny url machine</h2>
         <input type="text" id="urlInput" placeholder="enter url">
+        <p style="color: green;">Want a specific tiny url? (optional) </p>
+        <div class="preference-container">
+            <span style="padding-bottom: 10px;">https://tiny.com/</span>
+            <input type="text" id="preferenceInput" placeholder="my_url">
+        </div>
         <button id="shortenButton">generate tiny url</button>
         <div class="result" id="result"></div>
     </div>
@@ -73,11 +89,17 @@
     <script>
         document.getElementById('shortenButton').addEventListener('click', async () => {
             const url = document.getElementById('urlInput').value;
+            const preference = document.getElementById('preferenceInput').value;
             const resultDiv = document.getElementById('result');
 
             if (!url) {
                 resultDiv.textContent = "Please enter a URL.";
                 return;
+            }
+
+            const requestBody = { url };
+            if (preference) {
+                requestBody.preference = preference;
             }
 
             try {
@@ -86,7 +108,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({"url": url })
+                    body: JSON.stringify(requestBody)
                 });
 
                 if (!response.ok) {
@@ -94,7 +116,7 @@
                 }
 
                 const data = await response.json();
-                resultDiv.textContent = `Your tiny URL is: ${data.tinyUrl}`;
+                resultDiv.textContent = `Your tiny URL is: ${data.tiny_url}`;
             } catch (error) {
                 resultDiv.textContent = "An error occurred. Please try again.";
             }
