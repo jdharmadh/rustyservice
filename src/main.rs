@@ -1,3 +1,4 @@
+use core::str;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -32,25 +33,34 @@ async fn main() {
             .and(warp::path("tiny"))
             .and(warp::body::json())
             .map(move |url: Url| {
-                if let Some(preference) = &url.preference {
-                    warp::reply::json(&UrlResponse::from(Url {
-                        url: match service.post(String::from(url.url), None) {
-                            UrlPostResult::Success(value) => value,
-                            UrlPostResult::Taken => String::from("Oops."),
-                            UrlPostResult::DbError => String::from("Err!"),
-                        },
-                        preference: Some(preference.clone()),
-                    }))
-                } else {
-                    warp::reply::json(&UrlResponse::from(url))
-                }
+                warp::reply::json(&UrlResponse::from(Url {
+                    url: match service.post(String::from(url.url), url.preference.clone()) {
+                        UrlPostResult::Success(value) => value,
+                        UrlPostResult::Taken => String::from("Oops."),
+                        UrlPostResult::DbError => String::from("Err!"),
+                    },
+                    preference: None,
+                }))
             })
     };
-    let tiny2 = warp::path("tiny").map(|| "hey!");
+    let tiny_get = warp::path!("tiny" / String).and_then(move |str: String| {
+        let service = Arc::clone(&service);
+        async move {
+            match service.get(str) {
+                Ok(url) => {
+                    match url.parse::<warp::http::Uri>() {
+                        Ok(uri) => Ok(warp::redirect::temporary(uri)),
+                        Err(_) => Err(warp::reject::not_found()),
+                    }
+                },
+                Err(_) => Err(warp::reject::not_found()),
+            }
+        }
+    });
 
     let html = warp::path("url_shortener").and(warp::fs::file("example.html"));
 
-    warp::serve(tiny.or(tiny2).or(html))
+    warp::serve(tiny.or(tiny_get).or(html))
         .run(([127, 0, 0, 1], 3030))
         .await;
 }

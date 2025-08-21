@@ -1,5 +1,9 @@
-use sled::Error;
-use warp::filters::fs::file;
+use std::result;
+
+use serde::de::value;
+use sha2::{Sha256, Digest};
+use base62;
+use rand::{Rng};
 
 pub struct TinyUrlService {
     db: sled::Db,
@@ -18,22 +22,56 @@ impl TinyUrlService {
     }
 
     pub fn post(&self, url: String, preference: Option<String>) -> UrlPostResult {
-        let key = preference.unwrap_or_else(|| url.clone() + "key");
+        let key = match preference {
+            Some(value) => value,
+            None => self.generate_unique_key(url.clone()),
+        };
+
         let result = match self.db.get(key.as_bytes()) {
             Ok(value) => value,
             Err(_) => return UrlPostResult::DbError,
         };
 
         match result {
-            Some(_) => return UrlPostResult::Taken,
+            Some(value) => {
+                if value == url.as_bytes() {
+                    return UrlPostResult::Success(key);
+                } else {
+                    return UrlPostResult::Taken;
+                }
+            },
             None => {
                 let res = self.db.insert(key.as_bytes(), url.as_bytes());
                 println!("Inserted key: {}, value: {}", key, url);
                 match res {
-                    Ok(_) => return UrlPostResult::Success(url),
+                    Ok(_) => return UrlPostResult::Success(key),
                     Err(_) => return UrlPostResult::DbError,
                 }
             }
         }
+    }
+
+    pub fn get(&self, key: String) -> Result<String, String> {
+        match self.db.get(key.as_bytes()).map_err(|_| "Database error".to_string())? {
+            Some(value) => Ok(String::from_utf8(value.to_vec()).unwrap()),
+            None => Err("Key not found".to_string()),
+        }
+    }
+
+    fn generate_unique_key(&self, string: String) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(string.as_bytes());
+        let hash_result = hasher.finalize();
+        let num = u64::from_be_bytes(hash_result[0..8].try_into().unwrap());
+        let mut result = base62::encode(num);
+        let mut rng = rand::thread_rng();
+        while let Some(value) = self.db.get(result.clone()).unwrap() {
+            if value == string {
+                return result;
+            } else {
+                result.push(rng.gen_range('a'..='z'));
+            }
+        }
+        return result;
     }
 }
