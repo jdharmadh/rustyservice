@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
 use base62;
-use rand::{Rng};
+use rand::Rng;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct TinyUrlHttpRequest {
@@ -15,8 +15,21 @@ pub struct TinyUrlHttpResponse {
 }
 
 impl TinyUrlHttpResponse {
-    pub fn from(url: TinyUrlHttpRequest) -> TinyUrlHttpResponse {
-        TinyUrlHttpResponse { tiny_url: url.url }
+    pub fn from(tiny_url: String) -> Self {
+        TinyUrlHttpResponse { tiny_url: tiny_url }
+    }
+}
+
+impl From<UrlPostResult> for (warp::http::StatusCode, String) {
+    fn from(result: UrlPostResult) -> Self {
+        match result {
+            UrlPostResult::Success(tiny_url) => (warp::http::StatusCode::OK, tiny_url),
+            UrlPostResult::Taken => (warp::http::StatusCode::CONFLICT, String::from("")),
+            UrlPostResult::DbError => (
+                warp::http::StatusCode::INTERNAL_SERVER_ERROR,
+                String::from(""),
+            ),
+        }
     }
 }
 
@@ -54,10 +67,9 @@ impl TinyUrlService {
                 } else {
                     return UrlPostResult::Taken;
                 }
-            },
+            }
             None => {
                 let res = self.db.insert(key.as_bytes(), url.as_bytes());
-                println!("Inserted key: {}, value: {}", key, url);
                 match res {
                     Ok(_) => return UrlPostResult::Success(key),
                     Err(_) => return UrlPostResult::DbError,
@@ -67,7 +79,11 @@ impl TinyUrlService {
     }
 
     pub fn get(&self, key: String) -> Result<String, String> {
-        match self.db.get(key.as_bytes()).map_err(|_| "Database error".to_string())? {
+        match self
+            .db
+            .get(key.as_bytes())
+            .map_err(|_| "Database error".to_string())?
+        {
             Some(value) => Ok(String::from_utf8(value.to_vec()).unwrap()),
             None => Err("Key not found".to_string()),
         }

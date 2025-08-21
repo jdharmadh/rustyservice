@@ -111,11 +111,18 @@
                     body: JSON.stringify(requestBody)
                 });
 
+                if (response.status === 409) {
+                    resultDiv.textContent = "The preferred URL is already taken. Please try again.";
+                    resultDiv.style.color = "red";
+                    return;
+                }
+
                 if (!response.ok) {
                     throw new Error('Failed to shorten URL');
                 }
 
                 const data = await response.json();
+                resultDiv.style.color = "green";
                 resultDiv.textContent = `Your tiny URL is: ${data.tiny_url}`;
             } catch (error) {
                 resultDiv.textContent = "An error occurred. Please try again.";
