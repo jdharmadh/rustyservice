@@ -1,39 +1,28 @@
 use core::str;
 use std::sync::Arc;
+use warp::{Filter, Reply};
 
-use serde::{Deserialize, Serialize};
-use warp::Filter;
-
-use crate::url::{TinyUrlService, UrlPostResult};
 mod url;
+use crate::url::{TinyUrlService, UrlPostResult, TinyUrlHttpRequest, TinyUrlHttpResponse};
 
-#[derive(Deserialize, Serialize, Debug)]
-struct Url {
-    url: String,
-    preference: Option<String>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-struct UrlResponse {
-    tiny_url: String,
-}
-
-impl UrlResponse {
-    fn from(url: Url) -> UrlResponse {
-        UrlResponse { tiny_url: url.url }
-    }
+async fn serve_html(html: String) -> Result<impl Reply, std::convert::Infallible> {
+        Ok(warp::reply::with_status(
+            warp::reply::html(html),
+            warp::http::StatusCode::NOT_FOUND,
+        ))
 }
 
 #[tokio::main]
 async fn main() {
     let service = Arc::new(TinyUrlService::from("db/url_store"));
+    let str_404 = tokio::fs::read_to_string("html/404.html").await.unwrap();
     let tiny = {
         let service = Arc::clone(&service);
         warp::post()
             .and(warp::path("tiny"))
             .and(warp::body::json())
-            .map(move |url: Url| {
-                warp::reply::json(&UrlResponse::from(Url {
+            .map(move |url: TinyUrlHttpRequest| {
+                warp::reply::json(&TinyUrlHttpResponse::from(TinyUrlHttpRequest {
                     url: match service.post(String::from(url.url), url.preference.clone()) {
                         UrlPostResult::Success(value) => value,
                         UrlPostResult::Taken => String::from("Oops."),
@@ -58,9 +47,11 @@ async fn main() {
         }
     });
 
-    let html = warp::path("url_shortener").and(warp::fs::file("example.html"));
+    let html = warp::path::end().and(warp::fs::file("html/url_shortener_main.html"));
 
-    warp::serve(tiny.or(tiny_get).or(html))
+    let routes = tiny.or(tiny_get).or(html).recover(move |_err| serve_html(str_404.clone()));
+
+    warp::serve(routes)
         .run(([127, 0, 0, 1], 3030))
         .await;
 }

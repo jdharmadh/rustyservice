@@ -1,9 +1,24 @@
-use std::result;
-
-use serde::de::value;
+use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
 use base62;
 use rand::{Rng};
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct TinyUrlHttpRequest {
+    pub url: String,
+    pub preference: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct TinyUrlHttpResponse {
+    pub tiny_url: String,
+}
+
+impl TinyUrlHttpResponse {
+    pub fn from(url: TinyUrlHttpRequest) -> TinyUrlHttpResponse {
+        TinyUrlHttpResponse { tiny_url: url.url }
+    }
+}
 
 pub struct TinyUrlService {
     db: sled::Db,
