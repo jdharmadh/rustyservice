@@ -118,12 +118,12 @@
                 }
 
                 if (!response.ok) {
-                    throw new Error('Failed to shorten URL');
+                    resultDiv.textContent = `An error occurred: ${data.tiny_url}`;
+                } else {
+                    const data = await response.json();
+                    resultDiv.style.color = "green";
+                    resultDiv.textContent = `Your tiny URL is: ${data.tiny_url}`;
                 }
-
-                const data = await response.json();
-                resultDiv.style.color = "green";
-                resultDiv.textContent = `Your tiny URL is: ${data.tiny_url}`;
             } catch (error) {
                 resultDiv.textContent = "An error occurred. Please try again.";
             }

@@ -25,9 +25,9 @@ impl From<UrlPostResult> for (warp::http::StatusCode, String) {
         match result {
             UrlPostResult::Success(tiny_url) => (warp::http::StatusCode::OK, tiny_url),
             UrlPostResult::Taken => (warp::http::StatusCode::CONFLICT, String::from("")),
-            UrlPostResult::DbError => (
+            UrlPostResult::DbError(e) => (
                 warp::http::StatusCode::INTERNAL_SERVER_ERROR,
-                String::from(""),
+                String::from(e),
             ),
         }
     }
@@ -40,7 +40,7 @@ pub struct TinyUrlService {
 pub enum UrlPostResult {
     Success(String),
     Taken,
-    DbError,
+    DbError(String),
 }
 
 impl TinyUrlService {
@@ -57,7 +57,7 @@ impl TinyUrlService {
 
         let result = match self.db.get(key.as_bytes()) {
             Ok(value) => value,
-            Err(_) => return UrlPostResult::DbError,
+            Err(e) => return UrlPostResult::DbError(e.to_string()),
         };
 
         match result {
@@ -72,7 +72,7 @@ impl TinyUrlService {
                 let res = self.db.insert(key.as_bytes(), url.as_bytes());
                 match res {
                     Ok(_) => return UrlPostResult::Success(key),
-                    Err(_) => return UrlPostResult::DbError,
+                    Err(e) => return UrlPostResult::DbError(e.to_string()),
                 }
             }
         }
