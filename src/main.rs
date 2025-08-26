@@ -43,7 +43,7 @@ async fn main() {
         }
     });
 
-    let tinyurl_html = warp::path("tiny").and(warp::path::end()).and(warp::fs::file("html/url_shortener_main.html"));
+    let tinyurl_html = warp::path("tiny").and(warp::path::end()).and(warp::fs::file("html/tiny_url/index.html"));
 
     let website_html = warp::path::end().and(warp::fs::file("html/website/index.html"));
 
