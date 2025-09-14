@@ -46,7 +46,9 @@ async fn main() {
     let tinyurl_html = warp::path("tiny")
         .and(warp::path::end())
         .and(warp::fs::file("html/tiny_url/index.html"));
-    let zengarden_html = warp::path("zengarden").and(warp::fs::dir("html/zen-garden/frontend/"));
+    let zengarden_html = warp::path("zengarden")
+        .and(warp::path::end())
+        .and(warp::fs::dir("html/zen-garden/frontend"));
 
     let website_html = warp::fs::dir("html/website/");
 
