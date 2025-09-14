@@ -43,13 +43,17 @@ async fn main() {
         }
     });
 
-    let tinyurl_html = warp::path("tiny").and(warp::path::end()).and(warp::fs::file("html/tiny_url/index.html"));
+    let tinyurl_html = warp::path("tiny")
+        .and(warp::path::end())
+        .and(warp::fs::file("html/tiny_url/index.html"));
+    let zengarden_html = warp::path("zengarden").and(warp::fs::dir("html/zen-garden/frontend/"));
 
     let website_html = warp::fs::dir("html/website/");
 
     let routes = tiny
         .or(tiny_get)
         .or(tinyurl_html)
+        .or(zengarden_html)
         .or(website_html)
         .recover(move |_err| serve_html(str_404.clone()));
 
