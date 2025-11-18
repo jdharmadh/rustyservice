@@ -82,14 +82,31 @@ async fn main() {
             }
         });
 
-    let notepad_files = warp::path("notepad")
-        .and(warp::fs::dir("html/notepad/_site"));
+    let notepad_files = warp::path("notepad").and(warp::fs::dir("html/notepad/_site"));
 
     let notepad_index = warp::path("notepad")
         .and(warp::path::end())
         .and(warp::fs::file("html/notepad/_site/index.html"));
 
     let notepad_routes = notepad_index.or(notepad_files);
+
+    // Serve static files: JS, CSS, images, assets
+    let upskiller_static = warp::path("upskiller")
+        .and(warp::fs::dir("html/upskiller/dist"))
+        .map(|file| Box::new(file) as Box<dyn warp::Reply>);
+
+    // Serve index.html for SPA navigation
+    let upskiller_index = warp::path("upskiller").and(warp::path::tail()).and_then(
+        |_tail: warp::path::Tail| async move {
+            match tokio::fs::read_to_string("html/upskiller/dist/index.html").await {
+                Ok(contents) => Ok::<_, warp::reject::Rejection>(warp::reply::with_status(
+                    warp::reply::html(contents),
+                    warp::http::StatusCode::OK,
+                )),
+                Err(_) => Err(warp::reject::not_found()),
+            }
+        },
+    );
 
     let routes = tiny
         .or(tiny_get)
@@ -101,6 +118,8 @@ async fn main() {
         .or(resume_editor_index)
         .or(polaroid)
         .or(notepad_routes)
+        .or(upskiller_static)
+        .or(upskiller_index)
         .recover(move |_err| serve_html(str_404.clone()));
     warp::serve(routes).run(([0, 0, 0, 0], 3030)).await;
 }
